@@ -1,14 +1,17 @@
+import os
 import httpx
 import streamlit as st
 
-API_BASE_URL = "http://localhost:8000"
-TIMEOUT = 60.0  # RAG pipeline can take a few seconds
+# Uses environment variable in production, falls back to localhost for development
+API_BASE_URL = os.getenv("API_BASE_URL", "http://localhost:8000")
+TIMEOUT = 60.0
 
 
 def get_auth_headers() -> dict:
-    """Builds Authorization header from session token."""
     token = st.session_state.get("token")
     return {"Authorization": f"Bearer {token}"}
+
+# ... rest of the file stays the same}
 
 
 # ─────────────────────────────────
