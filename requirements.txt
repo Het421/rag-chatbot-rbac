@@ -1,0 +1,42 @@
+# Backend
+fastapi
+uvicorn
+python-multipart
+python-dotenv
+pydantic-settings
+
+# Database
+sqlalchemy
+psycopg2-binary
+alembic
+
+# Auth
+python-jose[cryptography]
+passlib[bcrypt]
+bcrypt==4.0.1
+
+# Qdrant
+qdrant-client
+langchain-qdrant
+
+# LangChain & LLM
+langchain
+langchain-core
+langchain-community
+langchain-groq
+langchain-text-splitters
+langchain-huggingface
+
+# Embeddings & RAG
+sentence-transformers
+rank-bm25
+
+# PDF Parsing
+pymupdf
+
+# Frontend
+streamlit
+httpx
+
+# Utilities
+pandas

@@ -1,0 +1,22 @@
+# Environment
+.env
+venv/
+
+# Python
+__pycache__/
+*.pyc
+*.pyo
+
+# Storage
+storage/
+
+# Test files
+backend/test_*.py
+
+# Database
+*.db
+*.sqlite
+
+# IDE
+.vscode/
+.idea/
