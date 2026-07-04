@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ColleagueAI — Chat</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+<div class="app-container">
+
+    <!-- ─────────────────────────────────
+         SIDEBAR
+    ───────────────────────────────── -->
+    <div class="sidebar">
+
+        <!-- Brand -->
+        <div class="brand">🤖 ColleagueAI</div>
+
+        <!-- User Badge -->
+        <div class="user-badge">
+            <div class="name" id="userName"></div>
+            <div class="role" id="userRole"></div>
+        </div>
+
+        <!-- Navigation -->
+        <div class="sidebar-label">Navigation</div>
+        <a href="/chat" class="nav-item active">💬 Chat</a>
+        <a href="/profile" class="nav-item">👤 Profile</a>
+        <div id="adminNav" style="display:none;">
+            <a href="/admin" class="nav-item">🛠️ Admin Panel</a>
+        </div>
+
+        <hr class="divider">
+
+        <!-- New Conversation -->
+        <div class="sidebar-label">Conversations</div>
+        <button class="btn btn-full" id="newConvBtn"
+                style="margin-bottom:0.75rem;">
+            ➕ New Conversation
+        </button>
+
+        <!-- Conversation List -->
+        <div id="convList"></div>
+
+        <!-- Sidebar Bottom -->
+        <div class="sidebar-bottom">
+            <button class="btn btn-danger btn-full" id="logoutBtn">
+                🚪 Sign Out
+            </button>
+        </div>
+
+    </div>
+
+    <!-- ─────────────────────────────────
+         MAIN CONTENT
+    ───────────────────────────────── -->
+    <div class="main-content">
+
+        <!-- Header -->
+        <div class="page-header" id="chatHeader">
+            💬 ColleagueAI
+        </div>
+
+        <!-- Chat Messages -->
+        <div class="chat-container" id="chatContainer">
+            <!-- Empty state shown by default -->
+            <div class="empty-state" id="emptyState">
+                <div class="icon">🤖</div>
+                <h3>How can I help you today?</h3>
+                <p>Ask me anything about your company documents.</p>
+            </div>
+        </div>
+
+        <!-- Chat Input -->
+        <div class="chat-input-container">
+            <div class="chat-input-wrapper">
+                <textarea
+                    class="chat-input"
+                    id="chatInput"
+                    placeholder="Message ColleagueAI..."
+                    rows="1"
+                ></textarea>
+                <button class="send-btn" id="sendBtn" disabled>
+                    <svg width="16" height="16" viewBox="0 0 24 24"
+                         fill="none" stroke="currentColor"
+                         stroke-width="2.5">
+                        <line x1="22" y1="2" x2="11" y2="13"></line>
+                        <polygon points="22 2 15 22 11 13 2 9 22 2">
+                        </polygon>
+                    </svg>
+                </button>
+            </div>
+        </div>
+
+    </div>
+</div>
+
+<!-- Rename Modal -->
+<div class="modal-overlay" id="renameModal">
+    <div class="modal">
+        <div class="modal-title">Rename Conversation</div>
+        <input
+            class="form-input"
+            type="text"
+            id="renameInput"
+            placeholder="Conversation name"
+        />
+        <div class="modal-actions">
+            <button class="btn" id="cancelRename">Cancel</button>
+            <button class="btn btn-primary"
+                    style="width:auto;"
+                    id="confirmRename">
+                Save
+            </button>
+        </div>
+    </div>
+</div>
+
+<script src="/static/js/session.js"></script>
+<script src="/static/js/api.js"></script>
+<script>
+    // ─────────────────────────────────
+    // AUTH CHECK
+    // ─────────────────────────────────
+    Session.requireAuth();
+
+    // ─────────────────────────────────
+    // STATE
+    // ─────────────────────────────────
+    let activeConversationId = null;
+    let renamingConversationId = null;
+    let isLoading = false;
+
+    // ─────────────────────────────────
+    // INIT — runs when page loads
+    // ─────────────────────────────────
+    function init() {
+        // Fill user info in sidebar
+        document.getElementById('userName').textContent =
+            Session.getFullName();
+        document.getElementById('userRole').textContent =
+            Session.getRole().charAt(0).toUpperCase() +
+            Session.getRole().slice(1);
+
+        // Show admin nav if admin
+        if (Session.getRole() === 'admin') {
+            document.getElementById('adminNav').style.display = 'block';
+        }
+
+        // Load conversations
+        loadConversations();
+
+        // Event listeners
+        document.getElementById('newConvBtn')
+            .addEventListener('click', createConversation);
+        document.getElementById('logoutBtn')
+            .addEventListener('click', () => Session.logout());
+        document.getElementById('sendBtn')
+            .addEventListener('click', sendMessage);
+        document.getElementById('chatInput')
+            .addEventListener('keydown', handleInputKeydown);
+        document.getElementById('chatInput')
+            .addEventListener('input', handleInputResize);
+
+        // Modal events
+        document.getElementById('cancelRename')
+            .addEventListener('click', closeRenameModal);
+        document.getElementById('confirmRename')
+            .addEventListener('click', confirmRename);
+    }
+
+    // ─────────────────────────────────
+    // CONVERSATIONS
+    // ─────────────────────────────────
+    async function loadConversations() {
+        try {
+            const conversations = await Api.listConversations();
+            renderConversations(conversations);
+        } catch (err) {
+            console.error('Failed to load conversations:', err);
+        }
+    }
+
+    function renderConversations(conversations) {
+        const list = document.getElementById('convList');
+
+        if (conversations.length === 0) {
+            list.innerHTML = `
+                <p style="color:#999; font-size:0.85rem;
+                text-align:center; padding:1rem 0;">
+                    No conversations yet.
+                </p>`;
+            return;
+        }
+
+        list.innerHTML = conversations.map(conv => `
+            <div class="conv-item ${conv.id === activeConversationId
+                ? 'active' : ''}"
+                 data-id="${conv.id}"
+                 onclick="loadConversation('${conv.id}',
+                 '${escapeHtml(conv.title)}')">
+                <span style="
+                    overflow:hidden;
+                    text-overflow:ellipsis;
+                    white-space:nowrap;
+                    flex:1;">
+                    💬 ${escapeHtml(conv.title)}
+                </span>
+                <div class="conv-actions">
+                    <button class="conv-action-btn"
+                        onclick="event.stopPropagation();
+                        openRenameModal('${conv.id}',
+                        '${escapeHtml(conv.title)}')"
+                        title="Rename">✏️</button>
+                    <button class="conv-action-btn"
+                        onclick="event.stopPropagation();
+                        deleteConversation('${conv.id}')"
+                        title="Delete">🗑️</button>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    async function createConversation() {
+        try {
+            const conv = await Api.createConversation('New Conversation');
+            activeConversationId = conv.id;
+            document.getElementById('chatHeader').textContent =
+                `💬 ${conv.title}`;
+            clearMessages();
+            await loadConversations();
+        } catch (err) {
+            alert('Could not create conversation.');
+        }
+    }
+
+    async function loadConversation(convId, convTitle) {
+        activeConversationId = convId;
+        document.getElementById('chatHeader').textContent =
+            `💬 ${convTitle}`;
+
+        try {
+            const messages = await Api.getMessages(convId);
+            renderMessages(messages);
+            await loadConversations(); // refresh to update active state
+        } catch (err) {
+            alert('Could not load conversation.');
+        }
+    }
+
+    async function deleteConversation(convId) {
+        if (!confirm('Delete this conversation?')) return;
+
+        try {
+            await Api.deleteConversation(convId);
+            if (convId === activeConversationId) {
+                activeConversationId = null;
+                clearMessages();
+                document.getElementById('chatHeader').textContent =
+                    '💬 ColleagueAI';
+            }
+            await loadConversations();
+        } catch (err) {
+            alert('Could not delete conversation.');
+        }
+    }
+
+    // ─────────────────────────────────
+    // RENAME MODAL
+    // ─────────────────────────────────
+    function openRenameModal(convId, currentTitle) {
+        renamingConversationId = convId;
+        document.getElementById('renameInput').value = currentTitle;
+        document.getElementById('renameModal').classList.add('show');
+        document.getElementById('renameInput').focus();
+    }
+
+    function closeRenameModal() {
+        renamingConversationId = null;
+        document.getElementById('renameModal').classList.remove('show');
+    }
+
+    async function confirmRename() {
+        const newTitle = document.getElementById('renameInput').value.trim();
+        if (!newTitle) return;
+
+        try {
+            await Api.renameConversation(renamingConversationId, newTitle);
+
+            // Update header if renaming active conversation
+            if (renamingConversationId === activeConversationId) {
+                document.getElementById('chatHeader').textContent =
+                    `💬 ${newTitle}`;
+            }
+
+            closeRenameModal();
+            await loadConversations();
+        } catch (err) {
+            alert('Could not rename conversation.');
+        }
+    }
+
+    // ─────────────────────────────────
+    // MESSAGES
+    // ─────────────────────────────────
+    function renderMessages(messages) {
+        const container = document.getElementById('chatContainer');
+        const emptyState = document.getElementById('emptyState');
+
+        if (messages.length === 0) {
+            emptyState.style.display = 'flex';
+            // Remove old messages but keep empty state
+            Array.from(container.children).forEach(child => {
+                if (child.id !== 'emptyState') child.remove();
+            });
+            return;
+        }
+
+        emptyState.style.display = 'none';
+
+        // Clear old messages
+        Array.from(container.children).forEach(child => {
+            if (child.id !== 'emptyState') child.remove();
+        });
+
+        // Render each message
+        messages.forEach(msg => {
+            appendMessage(msg.role, msg.content, msg.sources || []);
+        });
+
+        scrollToBottom();
+    }
+
+    function appendMessage(role, content, sources = []) {
+        const container = document.getElementById('chatContainer');
+        const emptyState = document.getElementById('emptyState');
+
+        // Hide empty state when first message appears
+        emptyState.style.display = 'none';
+
+        const initials = role === 'user'
+            ? (Session.getFullName() || 'U').charAt(0).toUpperCase()
+            : '🤖';
+
+        // Build sources HTML
+        let sourcesHtml = '';
+        const validSources = sources.filter(
+            s => s.filename && s.filename !== 'Unknown'
+        );
+        if (role === 'assistant' && validSources.length > 0) {
+            sourcesHtml = `
+                <div class="sources">
+                    <div class="sources-title">📄 Sources</div>
+                    ${validSources.map(s => `
+                        <span class="source-badge">
+                            📌 ${escapeHtml(s.filename)}
+                            — Page ${s.page_number}
+                        </span>
+                    `).join('')}
+                </div>`;
+        }
+
+        const messageEl = document.createElement('div');
+        messageEl.className = `message ${role}`;
+        messageEl.innerHTML = `
+            <div class="message-avatar">${initials}</div>
+            <div class="message-content">
+                ${escapeHtml(content).replace(/\n/g, '<br>')}
+                ${sourcesHtml}
+            </div>`;
+
+        container.appendChild(messageEl);
+        scrollToBottom();
+    }
+
+    function clearMessages() {
+        const container = document.getElementById('chatContainer');
+        Array.from(container.children).forEach(child => {
+            if (child.id !== 'emptyState') child.remove();
+        });
+        document.getElementById('emptyState').style.display = 'flex';
+    }
+
+    // ─────────────────────────────────
+    // SEND MESSAGE
+    // ─────────────────────────────────
+    async function sendMessage() {
+        if (!activeConversationId) {
+            alert('Please select or create a conversation first.');
+            return;
+        }
+
+        const input = document.getElementById('chatInput');
+        const message = input.value.trim();
+        if (!message || isLoading) return;
+
+        // Clear input
+        input.value = '';
+        input.style.height = 'auto';
+        setSendDisabled(true);
+        isLoading = true;
+
+        // Show user message immediately
+        appendMessage('user', message, []);
+
+        // Show typing indicator
+        const typingEl = showTypingIndicator();
+
+        try {
+            const result = await Api.sendMessage(
+                activeConversationId,
+                message
+            );
+
+            // Remove typing indicator
+            typingEl.remove();
+
+            // Show assistant response
+            appendMessage(
+                'assistant',
+                result.answer,
+                result.sources || []
+            );
+
+        } catch (err) {
+            typingEl.remove();
+            appendMessage(
+                'assistant',
+                '❌ Sorry, something went wrong. Please try again.',
+                []
+            );
+        } finally {
+            isLoading = false;
+            setSendDisabled(false);
+        }
+    }
+
+    function showTypingIndicator() {
+        const container = document.getElementById('chatContainer');
+        const el = document.createElement('div');
+        el.className = 'message assistant';
+        el.id = 'typingIndicator';
+        el.innerHTML = `
+            <div class="message-avatar">🤖</div>
+            <div class="message-content" style="color:#999;">
+                <span class="spinner spinner-dark"></span>
+                Searching documents and thinking...
+            </div>`;
+        container.appendChild(el);
+        scrollToBottom();
+        return el;
+    }
+
+    // ─────────────────────────────────
+    // INPUT HELPERS
+    // ─────────────────────────────────
+    function handleInputKeydown(e) {
+        // Send on Enter, new line on Shift+Enter
+        if (e.key === 'Enter' && !e.shiftKey) {
+            e.preventDefault();
+            sendMessage();
+        }
+    }
+
+    function handleInputResize() {
+        const input = document.getElementById('chatInput');
+        // Enable send button only when there's text
+        setSendDisabled(input.value.trim() === '');
+        // Auto-resize textarea
+        input.style.height = 'auto';
+        input.style.height = Math.min(input.scrollHeight, 120) + 'px';
+    }
+
+    function setSendDisabled(disabled) {
+        document.getElementById('sendBtn').disabled = disabled;
+    }
+
+    function scrollToBottom() {
+        const container = document.getElementById('chatContainer');
+        container.scrollTop = container.scrollHeight;
+    }
+
+    // ─────────────────────────────────
+    // UTILITIES
+    // ─────────────────────────────────
+
+    // Prevent XSS — escape HTML special characters
+    // before inserting user content into the DOM
+    function escapeHtml(text) {
+        const div = document.createElement('div');
+        div.appendChild(document.createTextNode(text || ''));
+        return div.innerHTML;
+    }
+
+    // ─────────────────────────────────
+    // START
+    // ─────────────────────────────────
+    init();
+</script>
+
+</body>
+</html>

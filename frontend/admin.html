@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ColleagueAI — Profile</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+<div class="app-container">
+
+    <!-- ─────────────────────────────────
+         SIDEBAR
+    ───────────────────────────────── -->
+    <div class="sidebar">
+
+        <div class="brand">🤖 ColleagueAI</div>
+
+        <div class="user-badge">
+            <div class="name" id="userName"></div>
+            <div class="role" id="userRole"></div>
+        </div>
+
+        <div class="sidebar-label">Navigation</div>
+        <a href="/chat" class="nav-item">💬 Chat</a>
+        <a href="/profile" class="nav-item active">👤 Profile</a>
+        <div id="adminNav" style="display:none;">
+            <a href="/admin" class="nav-item">🛠️ Admin Panel</a>
+        </div>
+
+        <div class="sidebar-bottom">
+            <button class="btn btn-danger btn-full" id="logoutBtn">
+                🚪 Sign Out
+            </button>
+        </div>
+
+    </div>
+
+    <!-- ─────────────────────────────────
+         MAIN CONTENT
+    ───────────────────────────────── -->
+    <div class="main-content">
+
+        <div class="page-header">
+            👤 My Profile
+        </div>
+
+        <div class="content-area">
+
+            <!-- Account + Access Level -->
+            <div class="profile-grid">
+
+                <!-- Account Details -->
+                <div class="card">
+                    <div class="card-title">👤 Account Details</div>
+
+                    <div class="profile-field">
+                        <div class="profile-field-label">Full Name</div>
+                        <div class="profile-field-value"
+                             id="profileName"></div>
+                    </div>
+
+                    <div class="profile-field">
+                        <div class="profile-field-label">Employee ID</div>
+                        <div class="profile-field-value"
+                             id="profileEmployeeId"></div>
+                    </div>
+
+                    <div class="profile-field">
+                        <div class="profile-field-label">Role</div>
+                        <div class="profile-field-value"
+                             id="profileRole"></div>
+                    </div>
+
+                </div>
+
+                <!-- Access Level -->
+                <div class="card">
+                    <div class="card-title">🔑 Access Level</div>
+
+                    <div id="accessLevelContent"></div>
+
+                </div>
+
+            </div>
+
+            <!-- Password Card -->
+            <div class="card">
+                <div class="card-title">🔒 Password & Security</div>
+                <p style="color:#666; font-size:0.875rem;
+                margin-bottom:0.75rem;">
+                    Your default password is your
+                    <strong>Employee ID</strong>.
+                    Password change functionality with OTP verification
+                    will be available in a future update.
+                </p>
+                <p style="color:#999; font-size:0.8rem;">
+                    🔐 If you need to reset your password,
+                    please contact your system administrator.
+                </p>
+            </div>
+
+            <!-- About Card -->
+            <div class="card">
+                <div class="card-title">🤖 About ColleagueAI</div>
+                <p style="color:#666; font-size:0.875rem;
+                margin-bottom:0.75rem;">
+                    ColleagueAI is your internal company assistant,
+                    powered by advanced RAG (Retrieval-Augmented Generation)
+                    technology. It answers your questions using only your
+                    company's official documents — accurately and with
+                    full source citations.
+                </p>
+                <p style="color:#999; font-size:0.8rem;">
+                    🔍 Hybrid Search &nbsp;·&nbsp;
+                    🧠 Groq LLM &nbsp;·&nbsp;
+                    📄 PDF Intelligence &nbsp;·&nbsp;
+                    🔒 Role-Based Access
+                </p>
+            </div>
+
+            <!-- Sign Out -->
+            <div style="text-align:center; padding:1rem 0;">
+                <button class="btn btn-danger"
+                        id="logoutBtn2"
+                        style="min-width:160px;">
+                    🚪 Sign Out
+                </button>
+            </div>
+
+        </div>
+    </div>
+</div>
+
+<script src="/static/js/session.js"></script>
+<script src="/static/js/api.js"></script>
+<script>
+    Session.requireAuth();
+
+    const role = Session.getRole();
+    const fullName = Session.getFullName();
+    const employeeId = Session.getEmployeeId();
+
+    // Fill sidebar
+    document.getElementById('userName').textContent = fullName;
+    document.getElementById('userRole').textContent =
+        role.charAt(0).toUpperCase() + role.slice(1);
+
+    // Show admin nav if admin
+    if (role === 'admin') {
+        document.getElementById('adminNav').style.display = 'block';
+    }
+
+    // Fill profile fields
+    document.getElementById('profileName').textContent = fullName;
+    document.getElementById('profileEmployeeId').textContent = employeeId;
+    document.getElementById('profileRole').textContent =
+        role.charAt(0).toUpperCase() + role.slice(1);
+
+    // Access level content based on role
+    const accessContent = document.getElementById('accessLevelContent');
+    if (role === 'admin') {
+        accessContent.innerHTML = `
+            <p style="color:#10a37f; font-weight:600;
+            margin-bottom:0.75rem;">
+                Administrator
+            </p>
+            <ul class="permission-list">
+                <li>✅ Upload & manage documents</li>
+                <li>✅ Access all PDFs</li>
+                <li>✅ View admin panel</li>
+                <li>✅ Chat with all documents</li>
+            </ul>`;
+    } else {
+        accessContent.innerHTML = `
+            <p style="color:#10a37f; font-weight:600;
+            margin-bottom:0.75rem;">
+                Employee
+            </p>
+            <ul class="permission-list">
+                <li>✅ Chat with company documents</li>
+                <li>✅ Access all employee PDFs</li>
+                <li>❌ Cannot upload documents</li>
+                <li>❌ Cannot access admin panel</li>
+            </ul>`;
+    }
+
+    // Logout buttons
+    document.getElementById('logoutBtn')
+        .addEventListener('click', () => Session.logout());
+    document.getElementById('logoutBtn2')
+        .addEventListener('click', () => Session.logout());
+</script>
+
+</body>
+</html>

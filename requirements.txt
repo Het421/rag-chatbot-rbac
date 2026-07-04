@@ -37,6 +37,7 @@ pymupdf
 # Frontend
 streamlit
 httpx
+aiofiles
 
 # Utilities
 pandas

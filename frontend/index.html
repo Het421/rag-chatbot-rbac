@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ColleagueAI — Login</title>
+    <link rel="stylesheet" href="/static/css/style.css">
+</head>
+<body>
+
+<div class="login-page">
+    <div class="login-card">
+
+        <!-- Brand -->
+        <div class="login-brand">🤖 ColleagueAI</div>
+
+        <!-- Title -->
+        <h2 class="login-title">Welcome back</h2>
+        <p class="login-subtitle">Sign in with your Employee ID</p>
+
+        <!-- Alert box — hidden by default, shown on error -->
+        <div id="alert" class="alert"></div>
+
+        <!-- Login Form -->
+        <form id="loginForm">
+
+            <div class="form-group">
+                <label class="form-label" for="employeeId">
+                    Employee ID
+                </label>
+                <input
+                    class="form-input"
+                    type="text"
+                    id="employeeId"
+                    placeholder="e.g. EMP001"
+                    autocomplete="username"
+                    required
+                />
+            </div>
+
+            <div class="form-group">
+                <label class="form-label" for="password">
+                    Password
+                </label>
+                <input
+                    class="form-input"
+                    type="password"
+                    id="password"
+                    placeholder="Enter your password"
+                    autocomplete="current-password"
+                    required
+                />
+            </div>
+
+            <br>
+
+            <button
+                class="btn btn-primary"
+                type="submit"
+                id="loginBtn"
+            >
+                Sign In →
+            </button>
+
+        </form>
+        
+    </div>
+</div>
+
+<!-- Load session and api utilities -->
+<script src="/static/js/session.js"></script>
+<script src="/static/js/api.js"></script>
+
+<script>
+    // If already logged in → skip login page
+    Session.requireGuest();
+
+    const form = document.getElementById('loginForm');
+    const loginBtn = document.getElementById('loginBtn');
+    const alert = document.getElementById('alert');
+
+    /**
+     * Show an alert message to the user.
+     * type: 'error', 'success', 'info'
+     */
+    function showAlert(message, type = 'error') {
+        alert.className = `alert alert-${type} show`;
+        alert.textContent = message;
+    }
+
+    /**
+     * Hide the alert box.
+     */
+    function hideAlert() {
+        alert.className = 'alert';
+        alert.textContent = '';
+    }
+
+    /**
+     * Set button to loading state while API call is in progress.
+     */
+    function setLoading(isLoading) {
+        if (isLoading) {
+            loginBtn.disabled = true;
+            loginBtn.innerHTML = '<span class="spinner"></span> Signing in...';
+        } else {
+            loginBtn.disabled = false;
+            loginBtn.innerHTML = 'Sign In →';
+        }
+    }
+
+    /**
+     * Handle form submission.
+     * Called when user clicks "Sign In" button.
+     */
+    form.addEventListener('submit', async (e) => {
+        // Prevent default form submission (page reload)
+        e.preventDefault();
+
+        hideAlert();
+
+        const employeeId = document.getElementById('employeeId').value.trim();
+        const password = document.getElementById('password').value;
+
+        // Basic validation
+        if (!employeeId || !password) {
+            showAlert('Please enter both Employee ID and Password.');
+            return;
+        }
+
+        setLoading(true);
+
+        try {
+            // Call FastAPI login endpoint
+            const result = await Api.login(employeeId, password);
+
+            // Save to localStorage
+            Session.login(
+                result.access_token,
+                result.role,
+                result.full_name,
+                employeeId
+            );
+
+            // Show success briefly then redirect
+            showAlert(`Welcome, ${result.full_name}!`, 'success');
+
+            setTimeout(() => {
+                window.location.href = '/chat';
+            }, 800);
+
+        } catch (error) {
+            const msg = error.message || '';
+            if (msg.includes('Invalid') || msg.includes('401')) {
+                showAlert('❌ Invalid Employee ID or Password.');
+            } else if (msg.includes('deactivated') || msg.includes('403')) {
+                showAlert('❌ Your account has been deactivated. Contact admin.');
+            } else {
+                showAlert('❌ Could not connect to server. Is the backend running?');
+            }
+        } finally {
+            setLoading(false);
+        }
+    });
+
+    // Hide alert when user starts typing again
+    document.getElementById('employeeId').addEventListener('input', hideAlert);
+    document.getElementById('password').addEventListener('input', hideAlert);
+</script>
+
+</body>
+</html>

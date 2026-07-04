@@ -20,3 +20,4 @@ backend/test_*.py
 # IDE
 .vscode/
 .idea/
+.early.coverage
